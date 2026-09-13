@@ -25,19 +25,15 @@ read ADMIN_USER
 ADMIN_USER="${ADMIN_USER:-admin}"
 
 while true; do
-  stty -echo
   printf "Enter admin password (min 8 chars): "
-  read ADMIN_PASS
-  stty echo
+  read -s ADMIN_PASS
   echo ""
   if [ -z "$ADMIN_PASS" ] || [ "${#ADMIN_PASS}" -lt 8 ]; then
     echo "Password too short/empty. Try again."
     continue
   fi
-  stty -echo
   printf "Confirm password: "
-  read ADMIN_PASS_CONFIRM
-  stty echo
+  read -s ADMIN_PASS_CONFIRM
   echo ""
   if [ "$ADMIN_PASS" != "$ADMIN_PASS_CONFIRM" ]; then
     echo "Passwords did not match. Try again."
