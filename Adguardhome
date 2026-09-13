@@ -42,11 +42,18 @@ while true; do
   break
 done
 
-echo "==> [1/5] Installing AdGuard Home..."
+echo "==> [1/5] Moving dnsmasq off port 53 first (so AdGuard Home can bind it)..."
+uci set dhcp.@dnsmasq[0].port="${DNSMASQ_PORT}"
+uci set dhcp.@dnsmasq[0].noresolv='1'
+uci add_list dhcp.@dnsmasq[0].server='127.0.0.1#53'
+uci commit dhcp
+/etc/init.d/dnsmasq restart
+sleep 2
+
+echo "==> [2/5] Installing AdGuard Home..."
 curl -s -S -L https://raw.githubusercontent.com/AdguardTeam/AdGuardHome/master/scripts/install.sh | sh -s -- -v
 
-echo "==> [2/5] Waiting for AdGuard Home web interface to come up..."
-# (step numbers below continue from the initial [0/5] credential prompt)
+echo "==> [3/5] Waiting for AdGuard Home web interface to come up..."
 i=0
 until curl -s -o /dev/null "http://127.0.0.1:3000/control/status"; do
   i=$((i+1))
@@ -57,7 +64,7 @@ until curl -s -o /dev/null "http://127.0.0.1:3000/control/status"; do
   sleep 1
 done
 
-echo "==> [3/5] Completing setup wizard via API (skips the browser wizard)..."
+echo "==> [4/5] Completing setup wizard via API (skips the browser wizard)..."
 curl -s -X POST "http://127.0.0.1:3000/control/install/configure" \
   -H "Content-Type: application/json" \
   -d "{\"web\":{\"ip\":\"0.0.0.0\",\"port\":3000},\"dns\":{\"ip\":\"0.0.0.0\",\"port\":53},\"username\":\"${ADMIN_USER}\",\"password\":\"${ADMIN_PASS}\"}" \
@@ -66,13 +73,6 @@ cat /tmp/agh_setup_response.json
 echo ""
 echo "    (If this returned an error, your AdGuard Home version may have changed"
 echo "     its setup API — fall back to visiting http://${ROUTER_IP}:3000 once manually.)"
-
-echo "==> [4/5] Moving dnsmasq to port ${DNSMASQ_PORT} and forwarding to AdGuard Home..."
-uci set dhcp.@dnsmasq[0].port="${DNSMASQ_PORT}"
-uci set dhcp.@dnsmasq[0].noresolv='1'
-uci add_list dhcp.@dnsmasq[0].server='127.0.0.1#53'
-uci commit dhcp
-/etc/init.d/dnsmasq restart
 
 echo "==> [5/5] Forcing LAN clients to use AdGuard Home via DHCP option 6..."
 uci set dhcp.${LAN_IFACE}.dhcp_option="6,${ROUTER_IP}"
